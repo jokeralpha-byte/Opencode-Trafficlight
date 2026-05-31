@@ -1,5 +1,3 @@
-
-
 <h1 align="center">🚦 OpenCode Traffic Light</h1>
 <p align="center"><i>A physical & virtual traffic light that shows what your AI coding agent is doing — in real time.</i></p>
 
@@ -15,11 +13,11 @@
 
 | Your Agent | The Light | Meaning |
 |:--|:--|:--|
+| Processing your request | 🟡 Yellow (blinking) | Working on it |
+| Asking you a question | 🔴 Red (solid) | Needs your input |
+| Error or permission needed | 🔴 Red (solid) | Something's wrong |
 | Waiting for you | 🟢 Green (solid) | Idle, ready |
-| Processing your request | 🟡 Yellow (breathing) | Working on it |
-| Asking you a question | 🔴 Red (blinking) + beep | Needs your input |
-| Error or permission needed | 🔴 Red (blinking) + beep | Something's wrong |
-| Task complete | 🟢 Green (solid) + beep | Done |
+| OpenCode disconnected | ⚫ All off (after 4s) | Plugin unreachable |
 
 **Zero manual interaction.** The light switches automatically based on OpenCode's internal events.
 
@@ -31,14 +29,30 @@
 
 ```
 release/
-├── OpenCodeTrafficLight.exe   ← Double-click (no Python needed)
+├── OpenCodeTrafficLight.exe   ← Double-click to run
 ├── traffic-light.js           ← OpenCode plugin
-└── opencode_light.ino         ← Arduino firmware (optional)
+├── light_app.py               ← Source code (run with Python)
+├── opencode_light.ino         ← Arduino firmware (optional)
+└── README.md
 ```
 
 ### 2. Run the app
 
-Double-click **`OpenCodeTrafficLight.exe`**. A window pops up showing three glowing circles. An HTTP server starts silently on `127.0.0.1:9876`.
+**Option A — EXE (no Python required):**
+
+Double-click **`OpenCodeTrafficLight.exe`** (~18 MB). A window with three glowing circles appears. An HTTP server starts on `127.0.0.1:9876`.
+
+**Option B — from source (recommended for customization):**
+
+```bash
+pip install pyserial pillow
+python light_app.py
+```
+
+- Starts dark by default, syncs to OpenCode's current state after 0.5 seconds
+- Click the **Pin** button to keep the window always-on-top
+- Automatically goes dark within 4s if OpenCode is closed
+- Arduino auto-detected via USB (optional)
 
 > **No Arduino?** The on-screen simulation works perfectly on its own.
 
@@ -80,8 +94,12 @@ Upload **`opencode_light.ino`** to your Arduino Uno. The app auto-detects it via
        │  tool.execute.before            │                         │
        │  session.idle                   │  ┌─ USB Serial ───────┐ │
        │  session.error                  │  │  Arduino Uno        │ │
-       │  permission.asked               │  │  (auto-detected)    │ │
-       └─────────────────────────────────│  └────────────────────┘ │
+       │  question.replied               │  │  (auto-detected)    │ │
+       │  permission.asked               │  └────────────────────┘ │
+       │                                 │                         │
+       │  State API (:9877)              │  On startup, app pings  │
+       │  GET /state → {"state":"..."}   │─ :9877/state to sync   │
+       └─────────────────────────────────│  every 2s as watchdog   │
                                          └─────────────────────────┘
 ```
 
@@ -89,16 +107,24 @@ Upload **`opencode_light.ino`** to your Arduino Uno. The app auto-detects it via
 
 ## 📡 HTTP API
 
-The desktop app serves a simple REST API:
+### Traffic Light App (port 9876)
 
 | Endpoint | Effect |
 |:--|:--|
 | `GET /health` | 200 OK (no light change) |
 | `GET /idle` | 🟢 Green solid |
-| `GET /working` | 🟡 Yellow breathing |
-| `GET /error` | 🔴 Red blinking + beep |
-| `GET /done` | 🟢 Green solid + beep |
+| `GET /working` | 🟡 Yellow blinking |
+| `GET /error` | 🔴 Red solid |
+| `GET /done` | 🟢 Green solid |
 | `GET /off` | ⚫ All off |
+
+### Plugin State API (port 9877)
+
+| Endpoint | Returns |
+|:--|:--|
+| `GET /state` | `{"state": "idle"\|"working"\|"error"\|"done"\|"off"}` |
+
+The desktop app queries this on startup and every 2 seconds to stay in sync. If the plugin is unreachable for 4+ seconds, all lights turn off automatically.
 
 ---
 
@@ -106,9 +132,16 @@ The desktop app serves a simple REST API:
 
 - 🖥️ **On-screen simulation** — works without hardware
 - 🔌 **Arduino support** — auto-detects via USB VID/PID
-- ⚡ **No flicker** — persistent serial connection, single startup flash
+- 🪄 **Anti-aliased circles** — smooth edges rendered with Pillow
+- 🟡 **Yellow blink** — working state is a steady 500ms blink
+- ⚫ **Default dark** — starts with all lights off, syncs state automatically
+- 🔍 **Watchdog** — polls the plugin every 2s; goes dark if OpenCode disconnects
+- 📌 **Always-on-top** — pin button to keep the window visible
+- 🖥️ **High DPI aware** — no blur on high-resolution displays
+- ↕️ **Resizable** — drag to any size, circles scale proportionally
+- ⚡ **No flicker** — persistent serial connection, single startup pulse
 - 🎛️ **Queue-based** — commands execute in order, no race conditions
-- 📦 **Single EXE** — PyInstaller packaged, zero dependencies
+- 📦 **Single EXE** — PyInstaller packaged (NumPy excluded to keep it lean)
 - 🔕 **Graceful fallback** — Arduino disconnected? Screen keeps working
 
 ---
@@ -118,11 +151,10 @@ The desktop app serves a simple REST API:
 | Symptom | Fix |
 |:--|:--|
 | Plugin not loading | File must be in `plugin/` (not `plugins/`). Restart OpenCode. |
-| Lights flash on change | Make sure the EXE is running (persistent serial prevents this) |
+| Green light stuck after starting EXE | Wait 0.5s for state sync from plugin |
+| Lights don't turn off when OpenCode closes | Wait up to 4s for watchdog to detect disconnection |
+| Lights flash on state change | Make sure the EXE is running (persistent serial prevents this) |
 | Arduino not detected | Check USB cable; CH340 chip needs driver |
-| Port 9876 in use | Kill old `OpenCodeTrafficLight.exe` processes |
+| Port 9876 or 9877 in use | Kill old `OpenCodeTrafficLight.exe` processes |
+| EXE won't launch | Install from source: `pip install pyserial pillow && python light_app.py` |
 | Window won't close | Right-click taskbar icon → Close |
-
-
-
-</p>
