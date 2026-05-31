@@ -4,7 +4,7 @@ const URL = "http://127.0.0.1:9876/";
 
 let _lastCmd = "";
 let _lastTime = 0;
-let _currentState = "idle";
+let _currentState = "off";
 const light = (cmd) => {
   const now = Date.now();
   if (cmd === _lastCmd && now - _lastTime < 500) return;
@@ -25,6 +25,9 @@ const stateServer = createServer((req, res) => {
     res.writeHead(404);
     res.end();
   }
+});
+stateServer.on("error", (err) => {
+  if (err.code !== "EADDRINUSE") console.error("State server error:", err.message);
 });
 stateServer.listen(9877, "127.0.0.1");
 
@@ -51,8 +54,9 @@ export default {
         }
         if (type === "question.replied") {
           waitingQuestion = false;
-          working = false;
-          light("idle");
+          working = true;
+          hadError = false;
+          light("working");
         }
         if (type === "session.error") {
           working = false; hadError = true; waitingQuestion = false;
@@ -84,7 +88,7 @@ export default {
         light("error");
       },
       "permission.asked": async () => {
-        working = false;
+        working = false; hadError = true;
         light("error");
       },
     };

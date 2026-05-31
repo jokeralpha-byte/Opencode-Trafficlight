@@ -122,7 +122,7 @@ Upload **`opencode_light.ino`** to your Arduino Uno. The app auto-detects it via
 
 | Endpoint | Returns |
 |:--|:--|
-| `GET /state` | `{"state": "idle"\|"working"\|"error"\|"done"\|"off"}` |
+| `GET /state` | `{"state": "idle"\|"working"\|"error"\|"off"}` |
 
 The desktop app queries this on startup and every 2 seconds to stay in sync. If the plugin is unreachable for 4+ seconds, all lights turn off automatically.
 
