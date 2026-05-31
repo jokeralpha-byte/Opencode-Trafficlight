@@ -79,6 +79,8 @@ Restart OpenCode. Done. The light now tracks your agent automatically.
 
 Upload **`opencode_light.ino`** to your Arduino Uno. The app auto-detects it via USB.
 
+> **Note:** Arduino LED effects differ from the on-screen GUI — yellow uses pulse instead of blink, red uses blink + beep for higher visibility on physical hardware.
+
 ---
 
 ## 🏗 Architecture

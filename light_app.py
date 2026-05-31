@@ -243,6 +243,7 @@ class SerialWorker:
                 continue
 
             data = cmd_map.get(cmd, [])
+            self.gui.set_state(cmd)
             for d in data:
                 if self._ser and self._ser.is_open:
                     try:
@@ -255,9 +256,6 @@ class SerialWorker:
                         self._ser = None
                         self.gui.set_arduino(False)
                         break
-
-                # Always update GUI (works without Arduino)
-                self.gui.set_state(cmd)
 
 
 # ===================== HTTP Server =====================
